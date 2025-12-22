@@ -123,6 +123,10 @@ fn init() {
 
 This tool is for **educational purposes and security research only**. The author is not responsible for any misuse of this software, including game modification in violation of ToS or bypassing security controls on systems you do not own.
 
+## Credit
+
+Project are Based on [Zygisk-Rust-ModuleTemplate](https://github.com/Gstalker/Zygisk-Rust-ModuleTemplate) by Gstalker
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
