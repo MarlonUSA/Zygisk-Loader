@@ -38,29 +38,38 @@ impl ZygiskModule for ZygiskLoaderModule {
         #[cfg(target_os = "android")]
         android_logger::init_once(
             Config::default()
-                .with_min_level(Level::Info)
+                .with_min_level(Level::Debug) // Changed to Debug for more detailed logs
                 .with_tag("Zygisk_Loader"),
         );
-
-        info!("Zygisk-Loader Loaded. Waiting for target app...");
+        info!("Zygisk-Loader Loaded (on_load).");
     }
 
     fn post_app_specialize(&self, _api: ZygiskApi, _args: &AppSpecializeArgs) {
+        // 1. Get Process Name
         let current_process = match get_process_name() {
             Ok(name) => name,
-            Err(_) => return,
-        };
-
-        let target_package = match read_target_config() {
-            Ok(target) => target,
             Err(e) => {
+                error!("Failed to read /proc/self/cmdline: {:?}", e);
                 return;
             }
         };
 
-        if current_process.trim() == target_package.trim() {
-            info!("TARGET DETECTED: {}", current_process);
-            info!("Injecting Payload from: {}", PAYLOAD_PATH);
+        // (This will spam logcat a bit, but important for diagnosis)
+        debug!("Checking process: '{}'", current_process);
+
+        // 2. Read Target Config
+        let target_package = match read_target_config() {
+            Ok(target) => target,
+            Err(e) => {
+                // if error here, it means permission/SELinux issue
+                error!("Failed to read config in {}: {:?}", CONFIG_PATH, e);
+                return;
+            }
+        };
+
+        if current_process.contains(target_package.trim()) {
+            info!("Target Match! Process: '{}' matches Target: '{}'", current_process, target_package);
+            info!("Attempting Injection: {}", PAYLOAD_PATH);
 
             unsafe {
                 inject_payload(PAYLOAD_PATH);
@@ -103,12 +112,12 @@ unsafe fn inject_payload(path: &str) {
         let err_ptr = libc::dlerror();
         if !err_ptr.is_null() {
             let err_msg = CStr::from_ptr(err_ptr).to_string_lossy();
-            error!("❌ GAGAL LOAD PAYLOAD: {}", err_msg);
+            error!("Fail Load Payload: {}", err_msg);
         } else {
-            error!("❌ GAGAL LOAD PAYLOAD: Unknown error");
+            error!("Fail Load Payload: Unknown error");
         }
     } else {
-        info!("✅ PAYLOAD BERHASIL DIMUAT! Handle: {:p}", handle);
+        info!("Payload successfully loaded! Handle: {:p}", handle);
     }
 }
 
