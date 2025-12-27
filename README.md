@@ -2,6 +2,7 @@
 
 ![Language](https://img.shields.io/badge/Language-Rust-orange)
 ![API](https://img.shields.io/badge/Zygisk-API%20v5-blue)
+[![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/UnixPhoriaD)
 
 **Zygisk-Loader** is a stealthy, high-performance Zygisk module written in **Rust**. It acts as a universal "bridge" that dynamically injects external shared libraries (`.so`) into specific Android application processes.
 
