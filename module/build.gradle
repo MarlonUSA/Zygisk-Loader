@@ -18,7 +18,7 @@ android {
             abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
         }
     }
-    ndkVersion '26.2.11394342'
+    ndkVersion '29.0.14206865'
 }
 
 cargo {
@@ -102,8 +102,8 @@ afterEvaluate {
         task("zip${variantCapped}", type: Zip) {
             dependsOn("prepareMagiskFiles${variantCapped}")
             from magiskDir
-            archiveName zipName
-            destinationDir outDir
+            archiveFileName = zipName
+            destinationDirectory = file(outDir)
         }
 
         task("push${variantCapped}", type: Exec) {
