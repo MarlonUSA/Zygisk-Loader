@@ -27,6 +27,7 @@ cargo {
     module  = "./rust"       // Or whatever directory contains your Cargo.toml
     libname = "zygiskloader"          // Or whatever matches Cargo.toml's [package] name.
     targets = ["arm", "arm64", "x86", "x86_64"]  // See bellow for a longer list of options
+    pythonCommand = "python3"
 }
 
 
