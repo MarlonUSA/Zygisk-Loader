@@ -11,6 +11,7 @@ apply from: file(rootProject.file('module.gradle'))
 
 android {
     compileSdk target_sdk
+    buildToolsVersion '36.1.0'
     defaultConfig {
         minSdk min_sdk
         targetSdk target_sdk
@@ -74,16 +75,16 @@ afterEvaluate {
                 filter(FixCrLfFilter.class,
                         eol: FixCrLfFilter.CrLf.newInstance("lf"))
             }
-            from("$buildDir/intermediates/stripped_native_libs/$variantLowered/out/lib/arm64-v8a") {
+            from("$buildDir/rustJniLibs/android/arm64-v8a") {
                 into 'lib/arm64-v8a'
             }
-            from("$buildDir/intermediates/stripped_native_libs/$variantLowered/out/lib/armeabi-v7a") {
+            from("$buildDir/rustJniLibs/android/armeabi-v7a") {
                 into 'lib/armeabi-v7a'
             }
-            from("$buildDir/intermediates/stripped_native_libs/$variantLowered/out/lib/x86") {
+            from("$buildDir/rustJniLibs/android/x86") {
                 into 'lib/x86'
             }
-            from("$buildDir/intermediates/stripped_native_libs/$variantLowered/out/lib/x86_64") {
+            from("$buildDir/rustJniLibs/android/x86_64") {
                 into 'lib/x86_64'
             }
             doLast {
