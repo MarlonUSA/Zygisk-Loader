@@ -4,23 +4,22 @@
 ![API](https://img.shields.io/badge/Zygisk-API%20v5-blue)
 [![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/UnixPhoriaD)
 
-**Zygisk-Loader** is a stealthy, high-performance Zygisk module written in **Rust**. It acts as a universal "bridge" that dynamically injects external shared libraries (`.so`) into specific Android application processes.
+**Zygisk-Loader** is a stealthy, high-performance Zygisk module written in **Rust**. It acts as a universal bridge that dynamically injects external shared libraries (`.so`) into specific Android application processes.
 
-Unlike traditional Zygisk modules that require rebuilding and rebooting the device to update code, **Zygisk-Loader** enables a **"Hot-Swap" workflow**. You can recompile your instrumentation library, push it to the device, and simply restart the target app to apply changes instantly.
+Unlike traditional modules that require rebuilding and rebooting, **Zygisk-Loader** enables a **"Hot-Swap" workflow**. You can recompile your instrumentation library, push it to the device, and simply restart the target app to apply changes instantly.
 
 ## Key Features
 
-*   **Hot-Swap Capable**: Recompile and deploy payloads instantly without rebooting the device.
-*   **Dynamic Injection**: Inject any native library (`.so`) into any app without modifying the APK.
-*   **Rust-Powered**: Built with safety and performance in mind using the `jni` and `libc` crates.
+*   **Hot-Swap Capable**: Update your payload (`.so`) and deploy instantly by just restarting the target app. No device reboot required.
+*   **Robust Injection**: Uses a **RAM-Buffering Strategy**. The payload is read into memory with Root privileges, then written to the app's cache in the post-specialize phase. This ensures compatibility with strict SELinux policies and isolated processes.
+*   **Stealthy (Self-Deleting)**: The payload is written to disk, loaded, and **immediately unlinked**. The file vanishes from the filesystem instantly, leaving minimal traces for file scanners.
 *   **Zygisk API v5**: Utilizes the latest Zygisk API for maximum compatibility with Magisk, KernelSU, and APatch.
-*   **Stealthy**: Injection occurs early in the process memory (before `MainActivity`), making it ideal for bypassing SSL Pinning or anti-tamper mechanisms.
-*   **Self-Destruct**: The payload is written to the app's cache, loaded, and **immediately deleted from disk** (`unlink`), leaving minimal forensic traces.
-*   **Config-Driven**: Centralized configuration in the `/config/` directory.
+*   **Config-Driven**: Simple text-based configuration. No hardcoded package names.
+*   **Rust-Powered**: Built with safety and performance in mind using the `jni` and `libc` crates.
 
 ## Architecture
 
-Zygisk-Loader separates the **Injector** (The Module) from the **Payload** (The Logic).
+Zygisk-Loader separates the **Injector** (The Module) from the **Payload** (Your Logic). It bridges the permission gap between the Zygote process (Root) and the App process (Untrusted).
 
 ```mermaid
 flowchart TD
@@ -30,7 +29,7 @@ flowchart TD
     end
 
     subgraph Zygote [" Zygote Process (Root) "]
-        Step1[Read Config]
+        Step1[Read Target Config]
         Step2[Buffer Payload to RAM]
     end
 
@@ -77,7 +76,7 @@ After installation, the module creates a configuration directory:
 You can control the loader using ADB or a root shell.
 
 **A. Set Target Application:**
-Write the package name of the target app to the config file (no extension):
+Write the package name of the target app to the config file:
 ```bash
 echo "com.target.application" > /data/adb/modules/zygisk-loader/config/target
 ```
@@ -85,7 +84,7 @@ echo "com.target.application" > /data/adb/modules/zygisk-loader/config/target
 **B. Deploy Payload:**
 Copy your compiled Rust/C++ library to the config folder:
 ```bash
-# Copy your cheat/hook library
+# Copy your hook library
 cp libunpin.so /data/adb/modules/zygisk-loader/config/payload.so
 
 # Set permissions (Important for Zygote to read it)
@@ -93,14 +92,14 @@ chmod 644 /data/adb/modules/zygisk-loader/config/payload.so
 ```
 
 **C. Apply (Hot-Swap):**
-Force stop the target application. The next time it launches, the loader will inject the new payload from RAM.
+Force stop the target application. The next time it launches, the loader will inject the new payload.
 ```bash
 am force-stop com.target.application
 ```
 
-## Developing a Payload (Possible for any language)
+## Developing a Payload
 
-Your payload does not need to know about Zygisk. It acts as a standard shared library. in rust example We recommend using the `ctor` crate for automatic initialization.
+Your payload does not need to know about Zygisk. It acts as a standard shared library. In Rust, we recommend using the `ctor` crate for automatic initialization.
 
 `Cargo.toml`:
 ```toml
@@ -131,9 +130,14 @@ fn init() {
 }
 ```
 
+## Technical Constraints
+
+*   **SELinux Compatibility**: This module uses disk injection (Write-Load-Unlink) instead of `memfd` to ensure maximum compatibility across all Android versions and SELinux contexts. `memfd` often fails on `untrusted_app` domains due to `execmem` restrictions.
+*   **Isolated Processes**: The loader automatically handles isolated processes (e.g., `:remote` services) by resolving the correct data directory path.
+
 ## Disclaimer
 
-This tool is for **educational purposes and security research only**. The author is not responsible for any misuse of this software, including game modification in violation of ToS or bypassing security controls on systems you do not own.
+This tool is for **educational purposes and security research only**. The author is not responsible for any misuse of this software.
 
 ## License
 
