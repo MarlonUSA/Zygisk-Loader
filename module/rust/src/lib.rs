@@ -154,7 +154,8 @@ fn read_target_config() -> std::io::Result<String> {
 
 fn get_process_name_from_args_safe(args: &AppSpecializeArgs) -> String {
     if let Some(vm) = JAVA_VM.get() {
-        if let Ok(mut env) = vm.attach_current_thread_as_daemon() {
+        // Fast-Path: Thread already attached in Zygote child process
+        if let Ok(mut env) = vm.get_env() {
             if let Ok(s) = env.get_string(args.nice_name) {
                 let s_rust: String = s.into();
                 if !s_rust.is_empty() { return s_rust; }
@@ -168,7 +169,8 @@ fn get_process_name_from_args_safe(args: &AppSpecializeArgs) -> String {
 
 fn get_app_data_dir_from_args(args: &AppSpecializeArgs) -> String {
     if let Some(vm) = JAVA_VM.get() {
-        if let Ok(mut env) = vm.attach_current_thread_as_daemon() {
+        // Fast-Path: Thread already attached in Zygote child process
+        if let Ok(mut env) = vm.get_env() {
             if let Ok(j_str) = env.get_string(args.app_data_dir) {
                 return j_str.into();
             }
