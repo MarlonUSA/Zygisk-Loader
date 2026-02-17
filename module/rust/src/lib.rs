@@ -15,7 +15,7 @@ use android_logger::Config;
 use log::LevelFilter;
 
 use std::ffi::{CStr, CString};
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::OnceLock;
 
@@ -27,7 +27,6 @@ pub use module::ZygiskModule;
 // Config & Source Payload path
 const CONFIG_PATH: &str = "/data/adb/modules/zygisk-loader/config/target";
 const SOURCE_PAYLOAD_PATH: &str = "/data/adb/modules/zygisk-loader/config/payload.so";
-const TARGET_FILENAME: &str = "lib_ghost_payload.so";
 
 static MODULE: ZygiskLoaderModule = ZygiskLoaderModule {};
 crate::zygisk_module!(&MODULE);
@@ -38,6 +37,29 @@ static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
 static TARGET_CONFIG: OnceLock<String> = OnceLock::new();
 static PAYLOAD_BUFFER: OnceLock<Vec<u8>> = OnceLock::new();
 static TARGET_APP_DETECTED: OnceLock<bool> = OnceLock::new();
+
+fn rand_int() -> u32 {
+    // Simple pseudo-random for filename obfuscation using time
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos()
+}
+
+fn write_file(path: &str, data: &[u8]) -> std::io::Result<()> {
+    let mut f = File::create(path)?;
+    f.write_all(data)?;
+    f.sync_all()?;
+    Ok(())
+}
+
+fn read_file_to_memory(path: &str) -> std::io::Result<Vec<u8>> {
+    let mut f = File::open(path)?;
+    let mut buffer = Vec::new();
+    f.read_to_end(&mut buffer)?;
+    Ok(buffer)
+}
 
 impl ZygiskModule for ZygiskLoaderModule {
     fn on_load(&self, _api: ZygiskApi, env: &mut JNIEnv) {
@@ -84,62 +106,44 @@ impl ZygiskModule for ZygiskLoaderModule {
             return;
         }
 
-        let app_data_dir = get_app_data_dir_from_args(args);
-        if app_data_dir.is_empty() { return; }
-
         if let Some(buffer) = PAYLOAD_BUFFER.get() {
-            let cache_dir = format!("{}/cache", app_data_dir);
-            let dest_path = format!("{}/{}", cache_dir, TARGET_FILENAME);
-
-            let _ = fs::create_dir_all(&cache_dir);
+            // FIX: Use app_data_dir directly instead of nice_name
+            // This ensures we write to the correct folder even for isolated processes (e.g., :remote)
+            let data_dir = get_app_data_dir_from_args(args);
             
-            // Write file
-            match write_memory_to_file(&dest_path, buffer) {
+            if data_dir.is_empty() {
+                error!("Could not determine app data directory");
+                return;
+            }
+
+            // Generate a random filename to avoid collisions and look like a cache file
+            let file_name = format!("{}/cache/.res_{}.so", data_dir, rand_int());
+            
+            info!("Attempting injection to: {}", file_name);
+
+            match write_file(&file_name, buffer) {
                 Ok(_) => {
-                    let c_dest = CString::new(dest_path.clone()).unwrap();
-                    
+                    let c_path = CString::new(file_name.clone()).unwrap();
                     unsafe {
-                        libc::chmod(c_dest.as_ptr(), 0o700);
+                        let handle = libc::dlopen(c_path.as_ptr(), libc::RTLD_NOW);
                         
-                        // Injection
-                        info!("Injecting...");
-                        let handle = libc::dlopen(c_dest.as_ptr(), libc::RTLD_NOW);
-                        
+                        // Immediately unlink (delete) the file from disk
+                        // The kernel keeps the file in memory as long as it's mapped, 
+                        // but the file entry is removed from the filesystem.
+                        let _ = std::fs::remove_file(&file_name); 
+
                         if handle.is_null() {
                             let err = CStr::from_ptr(libc::dlerror()).to_string_lossy();
-                            error!("dlopen failed: {}", err);
+                            error!("Injection failed: {}", err);
                         } else {
                             info!("Injection success! Handle: {:p}", handle);
-                            info!("Payload is active.");
-                            
-                            if libc::unlink(c_dest.as_ptr()) == 0 {
-                                info!("Artifact removed from disk.");
-                            } else {
-                                error!("Failed to remove artifact.");
-                            }
                         }
                     }
                 },
-                Err(e) => error!("Write failed: {}", e)
+                Err(e) => error!("Failed to write payload: {}", e)
             }
         }
     }
-}
-
-// IO HELPERS
-
-fn read_file_to_memory(path: &str) -> std::io::Result<Vec<u8>> {
-    let mut f = File::open(path)?;
-    let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)?;
-    Ok(buffer)
-}
-
-fn write_memory_to_file(path: &str, data: &[u8]) -> std::io::Result<()> {
-    let mut f = File::create(path)?;
-    f.write_all(data)?;
-    f.sync_all()?;
-    Ok(())
 }
 
 fn read_target_config() -> std::io::Result<String> {
