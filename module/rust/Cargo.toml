@@ -17,3 +17,10 @@ crate-type = ["dylib"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15"
+
+[profile.release]
+strip = true      # Menghapus simbol debug (debug symbols)
+opt-level = "z"   # Optimasi ukuran biner lebih agresif daripada 's'
+lto = true        # Aktifkan Link Time Optimization
+codegen-units = 1 # Mengurangi paralelisme untuk optimasi maksimal
+panic = "abort"   # Menghapus kode penanganan panik (menghemat ruang)
