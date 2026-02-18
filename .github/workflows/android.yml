@@ -60,8 +60,7 @@ run: |
         with:
           name: zygiskloader-module-zip
           path: out/*.zip
-          
-  deploy:
+          deploy:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.ref == 'refs/heads/main'
