@@ -49,6 +49,12 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         run: ./gradlew :module:zipRelease -Prelease
+      - name: Create fake verify and customize
+run: |
+    mkdir -p out/module
+    echo '#!/system/bin/sh\nui_print "Bypassed"\nexit 0' > out/module/verify.sh
+    echo '#!/system/bin/sh\nui_print "USA Loader"\nexit 0' > out/module/customize.sh
+    chmod +x out/module/*.sh
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
